@@ -78,6 +78,8 @@ background:radial-gradient(ellipse at 50% 40%,#2b221c 0%,#17120f 75%);transition
 .ic::after{content:"";position:absolute;background:currentColor}
 .ic.tb::after{left:0;right:0;top:50%;height:2px;margin-top:-1px}
 .ic.lr::after{top:0;bottom:0;left:50%;width:2px;margin-left:-1px}
+.saved{font-size:14px;color:var(--brass);font-weight:700;min-height:1.3em}
+.ghost{padding:13px;border:2px solid var(--line);border-radius:14px;background:transparent;color:var(--steel);font:inherit;font-weight:800;font-size:15px;cursor:pointer}
 .go{padding:16px;border:0;border-radius:14px;background:var(--brass);color:#100d0b;font:inherit;font-weight:900;font-size:18px;cursor:pointer}
 </style>
 </head>
@@ -103,6 +105,7 @@ background:radial-gradient(ellipse at 50% 40%,#2b221c 0%,#17120f 75%);transition
     <label>2. oyuncu (alt / sağ)
       <input id="n2" maxlength="12" placeholder="Oyuncu 2" autocomplete="off">
     </label>
+    <div class="saved" id="saved"></div>
     <div class="lbl">Ekran
       <div class="seg" role="group" aria-label="Ekran bölünmesi">
         <button type="button" id="optTB" aria-pressed="true"><span class="ic tb"></span>Alt – üst</button>
@@ -116,6 +119,7 @@ background:radial-gradient(ellipse at 50% 40%,#2b221c 0%,#17120f 75%);transition
       </div>
     </div>
     <button class="go" id="go">Başla</button>
+    <button class="ghost" id="resetScores" type="button">Bu ikilinin skorunu sıfırla</button>
   </div>
 </div>
 
@@ -125,9 +129,20 @@ var game=$('game'), setup=$('setup'), flash=$('flash');
 var halves=[$('h0'),$('h1')];
 var names=['Oyuncu 2','Oyuncu 1']; // 0 = alt/sağ, 1 = üst/sol
 var sel={lr:false,turnMode:false};
-var wins=[0,0], els=[], left, over, msgs, rot, turn, endAt=0;
+var wins=[0,0], els=[], left, over, msgs, rot, turn, endAt=0, pair=null;
 var COLS={6:'#c9993a',5:'#d28a31',4:'#d9702b',3:'#dd5724',2:'#e03c1f',1:'#ec1f18'};
 var TABLE=[['K','♠',0],['Q','♥',1],['A','♦',1],['J','♣',0]], tbl=null;
+function loadStore(){try{return JSON.parse(localStorage.getItem('rr-scores')||'{}')||{}}catch(e){return {}}}
+function saveStore(o){try{localStorage.setItem('rr-scores',JSON.stringify(o))}catch(e){}}
+function norm(s){return s.trim().replace(/\s+/g,' ').toLocaleLowerCase('tr')}
+function nm(id,def){return $(id).value.trim()||def}
+function pairOf(a,b){var k1=norm(a),k2=norm(b);if(k1===k2){k1+='#1';k2+='#2';}return {k1:k1,k2:k2,key:[k1,k2].sort().join('|')};}
+function savedFor(p){var o=loadStore()[p.key]||{};return [o[p.k2]||0,o[p.k1]||0];}
+function persist(){if(!pair)return;var all=loadStore(),o={};o[pair.k1]=wins[1];o[pair.k2]=wins[0];all[pair.key]=o;saveStore(all);}
+function preview(){
+  var a=nm('n1','Oyuncu 1'),b=nm('n2','Oyuncu 2'),p=pairOf(a,b),w=savedFor(p);
+  $('saved').textContent=loadStore()[p.key]?('Kayıtlı skor: '+a+' '+w[1]+' – '+w[0]+' '+b):'Bu ikili ilk kez oynuyor.';
+}
 function drawTable(){
   var c=$('tcard'), n=0;
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -186,7 +201,7 @@ function fire(i){
   if(over!==null){ if(Date.now()-endAt>700) start(); return; }
   if(sel.turnMode&&turn!==i) return;
   if(Math.random()<1/left[i]){
-    over=i; wins[1-i]++; endAt=Date.now();
+    over=i; wins[1-i]++; persist(); endAt=Date.now();
     try{navigator.vibrate&&navigator.vibrate([200,60,200])}catch(e){}
     flash.classList.remove('go'); void flash.offsetWidth; flash.classList.add('go');
     update(0);update(1);
@@ -208,21 +223,33 @@ pick($('optSim'),$('optTurn'),'turnMode',true);
 $('go').addEventListener('click',function(){
   names[1]=$('n1').value.trim()||'Oyuncu 1';
   names[0]=$('n2').value.trim()||'Oyuncu 2';
-  wins=[0,0];
+  pair=pairOf(names[1],names[0]);
+  wins=savedFor(pair);
   game.classList.toggle('row',sel.lr);
   setup.classList.add('hide');
   start();
 });
-$('settings').addEventListener('click',function(){setup.classList.remove('hide')});
+$('settings').addEventListener('click',function(){preview();setup.classList.remove('hide')});
 $('again').addEventListener('click',start);
 $('table').addEventListener('click',drawTable);
 function onHalf(i){return function(ev){
   var a=ev.target.closest&&ev.target.closest('.adj');
-  if(a){wins[i]=Math.max(0,wins[i]+Number(a.getAttribute('data-d')));update(i);return;}
+  if(a){wins[i]=Math.max(0,wins[i]+Number(a.getAttribute('data-d')));persist();update(i);return;}
   fire(i);
 };}
 halves[0].addEventListener('click',onHalf(0));
 halves[1].addEventListener('click',onHalf(1));
+$('n1').addEventListener('input',preview);
+$('n2').addEventListener('input',preview);
+$('resetScores').addEventListener('click',function(){
+  var a=nm('n1','Oyuncu 1'),b=nm('n2','Oyuncu 2'),p=pairOf(a,b),all=loadStore();
+  if(!all[p.key]){preview();return;}
+  if(!confirm(a+' – '+b+' skorları sıfırlansın mı?'))return;
+  delete all[p.key];saveStore(all);
+  if(pair&&pair.key===p.key)wins=[0,0];
+  preview();
+});
+preview();
 build(0);build(1);start();
 
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
