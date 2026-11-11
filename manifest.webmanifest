@@ -1,0 +1,11 @@
+{
+  "name": "Rus Ruleti",
+  "short_name": "Rus Ruleti",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#100d0b",
+  "theme_color": "#100d0b",
+  "icons": [{"src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any"}]
+}
