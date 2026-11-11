@@ -27,7 +27,9 @@ background:radial-gradient(ellipse at 50% 40%,#2b221c 0%,#17120f 75%);transition
 .game:not(.row) .half.p1{padding-bottom:46px}
 .half:active{filter:brightness(1.25)}
 .name{font:700 20px Georgia,serif;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.score{font-size:14px;color:var(--steel);font-weight:700}
+.score{font-size:14px;color:var(--steel);font-weight:700;display:flex;align-items:center;gap:8px}
+.adj{width:34px;height:28px;border-radius:14px;background:#3a322b;color:var(--bone);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;cursor:pointer}
+.adj:active{background:var(--brass);color:#100d0b}
 .risk{font-size:clamp(40px,min(13vw,8vh),96px);font-weight:900;letter-spacing:-2px;line-height:1;transition:color .3s}
 .risk small{font-size:.26em;color:var(--steel);font-weight:600;letter-spacing:0;margin-left:8px}
 .cyl{width:min(112px,13vh);height:min(112px,13vh);flex:none;filter:drop-shadow(0 6px 10px #000a)}
@@ -149,9 +151,9 @@ function cylSvg(){
   return s+'<circle cx="60" cy="60" r="9" fill="#20252a"/></g></svg>';
 }
 function build(i){
-  halves[i].innerHTML='<div class="name"></div><div class="score"></div><div class="risk"></div>'+cylSvg()+'<div class="msg"></div><div class="cta"></div>';
+  halves[i].innerHTML='<div class="name"></div><div class="score"><span class="adj" role="button" aria-label="Galibiyeti azalt" data-d="-1">−</span><span class="sv"></span><span class="adj" role="button" aria-label="Galibiyeti artır" data-d="1">+</span></div><div class="risk"></div>'+cylSvg()+'<div class="msg"></div><div class="cta"></div>';
   var h=halves[i];
-  els[i]={name:h.querySelector('.name'),score:h.querySelector('.score'),risk:h.querySelector('.risk'),
+  els[i]={name:h.querySelector('.name'),sv:h.querySelector('.sv'),risk:h.querySelector('.risk'),
     rot:h.querySelector('.rot'),holes:h.querySelectorAll('.hole'),msg:h.querySelector('.msg'),cta:h.querySelector('.cta')};
 }
 function update(i){
@@ -159,7 +161,7 @@ function update(i){
   var waiting=sel.turnMode&&over===null&&turn!==i;
   h.className='half p'+i+(over===i?' dead':(over!==null?' won':''))+(waiting?' wait':'')+((over===null&&l<=2)?' hot':'');
   e.name.textContent=names[i];
-  e.score.textContent='Galibiyet: '+wins[i];
+  e.sv.textContent='Galibiyet: '+wins[i];
   if(over===i){e.risk.textContent='BANG';e.msg.textContent=names[i]+' vuruldu. Yeni tur için dokun.';e.risk.style.color='';}
   else if(over!==null){e.risk.textContent='Kazandı';e.msg.textContent='Rakip vuruldu. Yeni tur için dokun.';e.risk.style.color='';}
   else{
@@ -214,8 +216,13 @@ $('go').addEventListener('click',function(){
 $('settings').addEventListener('click',function(){setup.classList.remove('hide')});
 $('again').addEventListener('click',start);
 $('table').addEventListener('click',drawTable);
-halves[0].addEventListener('click',function(){fire(0)});
-halves[1].addEventListener('click',function(){fire(1)});
+function onHalf(i){return function(ev){
+  var a=ev.target.closest&&ev.target.closest('.adj');
+  if(a){wins[i]=Math.max(0,wins[i]+Number(a.getAttribute('data-d')));update(i);return;}
+  fire(i);
+};}
+halves[0].addEventListener('click',onHalf(0));
+halves[1].addEventListener('click',onHalf(1));
 build(0);build(1);start();
 
 if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
